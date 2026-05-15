@@ -10,6 +10,12 @@ const procedureSchema = new mongoose.Schema(
     defaultPoints: { type: Number, default: 0 },
     costPerPoint: { type: Number, default: 0 },
     pricePerPoint: { type: Number, default: 0 },
+    /** Lista no portal só para fluxo Clínica estética vs Cirurgião plástico. */
+    practiceProfileScope: {
+      type: String,
+      enum: ['clinic', 'surgeon'],
+      required: true,
+    },
   },
   { timestamps: true },
 );

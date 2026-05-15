@@ -33,6 +33,7 @@ export async function createApp() {
   }
 
   await connectDb(MONGODB_URI);
+  // Upsert idempotente do catálogo (novos slugs em bases já populadas).
   await seedProceduresIfEmpty();
 
   const app = express();

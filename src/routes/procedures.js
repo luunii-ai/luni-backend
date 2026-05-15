@@ -5,9 +5,12 @@ export function createProceduresRouter(requireAuth) {
   const r = Router();
   r.use(requireAuth);
 
-  r.get('/procedures', async (_req, res) => {
+  r.get('/procedures', async (req, res) => {
     try {
-      const list = await listProcedures();
+      const raw = req.query?.practiceProfile;
+      const practiceProfile =
+        typeof raw === 'string' && (raw === 'clinic' || raw === 'surgeon') ? raw : undefined;
+      const list = await listProcedures({ practiceProfile });
       res.json(list);
     } catch (e) {
       console.error(e);
