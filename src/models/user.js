@@ -17,6 +17,9 @@ const userSchema = new mongoose.Schema(
     simulationMonthlyQuota: { type: Number, default: 0 },
     simulationCreditsRemaining: { type: Number, default: 0 },
     simulationQuotaPeriodKey: { type: String, default: '' },
+    previewMonthlyQuota: { type: Number, default: 0 },
+    previewCreditsRemaining: { type: Number, default: 0 },
+    previewQuotaPeriodKey: { type: String, default: '' },
     /** official: cliente normal; partner_test: conta parceiro/influenciador (cota fixa, sem assinatura). */
     accountType: {
       type: String,

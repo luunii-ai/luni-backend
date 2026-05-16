@@ -14,6 +14,7 @@ export function createAdminRouter(requireAdmin) {
         clinic,
         password,
         simulationCredits,
+        previewCredits,
         partnerTestExpiresAt,
         partnerTestDurationDays,
       } = req.body || {};
@@ -34,6 +35,7 @@ export function createAdminRouter(requireAdmin) {
         email: em,
         password: password != null && String(password).length > 0 ? password : undefined,
         simulationCredits,
+        previewCredits,
         partnerTestExpiresAt,
         partnerTestDurationDays,
       });

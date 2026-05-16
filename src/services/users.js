@@ -14,6 +14,8 @@ export function userToPublic(doc) {
     firstAccess: doc.firstAccess === true,
     simulationCreditsRemaining: doc.simulationCreditsRemaining ?? 0,
     simulationMonthlyQuota: doc.simulationMonthlyQuota ?? 0,
+    previewCreditsRemaining: doc.previewCreditsRemaining ?? 0,
+    previewMonthlyQuota: doc.previewMonthlyQuota ?? 0,
     accountType: doc.accountType === 'partner_test' ? 'partner_test' : 'official',
   };
   if (doc.subscriptionStatus) out.subscriptionStatus = doc.subscriptionStatus;
@@ -132,6 +134,7 @@ export async function updateUserStripeFields(userId, fields) {
  * @param {string} [opts.clinic]
  * @param {string} [opts.password] — se omitido, gera temporária
  * @param {number} [opts.simulationCredits=10]
+ * @param {number} [opts.previewCredits=5]
  * @param {string} [opts.partnerTestExpiresAt] — ISO
  * @param {number} [opts.partnerTestDurationDays] — dias a partir de agora (UTC)
  */
@@ -141,11 +144,14 @@ export async function createPartnerTestUser({
   email,
   password,
   simulationCredits = 10,
+  previewCredits = 5,
   partnerTestExpiresAt,
   partnerTestDurationDays,
 }) {
   const raw = Number(simulationCredits);
   const credits = Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 10;
+  const rawPreview = Number(previewCredits);
+  const previewPts = Number.isFinite(rawPreview) && rawPreview >= 0 ? Math.floor(rawPreview) : 5;
   const pwd =
     password != null && String(password).length > 0
       ? String(password)
@@ -166,6 +172,9 @@ export async function createPartnerTestUser({
     simulationMonthlyQuota: 0,
     simulationCreditsRemaining: credits,
     simulationQuotaPeriodKey: '',
+    previewMonthlyQuota: previewPts,
+    previewCreditsRemaining: previewPts,
+    previewQuotaPeriodKey: '',
     partnerTestExpiresAt: expiresAt,
   });
   return { user, plainPassword: password != null && String(password).length > 0 ? null : pwd };

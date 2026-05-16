@@ -75,6 +75,7 @@ export async function syncUserQuotaFromStripeSubscription(userId, subscription) 
   const rawPrice = firstItem?.price;
   const priceId = typeof rawPrice === 'string' ? rawPrice : (rawPrice?.id ?? '');
   const quota = getMonthlyQuotaForPriceId(priceId);
+  const previewQuota = getMonthlyPreviewQuotaForPriceId(priceId);
 
   const periodKey = getCurrentQuotaPeriodKey();
 
@@ -83,6 +84,9 @@ export async function syncUserQuotaFromStripeSubscription(userId, subscription) 
       simulationMonthlyQuota: quota,
       simulationCreditsRemaining: quota,
       simulationQuotaPeriodKey: periodKey,
+      previewMonthlyQuota: previewQuota,
+      previewCreditsRemaining: previewQuota,
+      previewQuotaPeriodKey: periodKey,
     },
   });
 }
@@ -93,6 +97,8 @@ export async function zeroUserQuota(userId) {
     $set: {
       simulationMonthlyQuota: 0,
       simulationCreditsRemaining: 0,
+      previewMonthlyQuota: 0,
+      previewCreditsRemaining: 0,
     },
   });
 }
@@ -129,4 +135,79 @@ export async function tryDebitSimulationCredit(userId) {
 /** Devolve 1 crédito após falha do agente (débito feito antes da chamada). */
 export async function refundSimulationCredit(userId) {
   await User.findByIdAndUpdate(userId, { $inc: { simulationCreditsRemaining: 1 } });
+}
+
+// --- Preview quota ---
+
+function loadPreviewQuotaMap() {
+  const raw = (process.env.PREVIEW_QUOTA_BY_PRICE_ID || '').trim();
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+  } catch {
+    console.error('[simulationQuotas] PREVIEW_QUOTA_BY_PRICE_ID is not valid JSON — preview quotas disabled');
+  }
+  return {};
+}
+
+export function getMonthlyPreviewQuotaForPriceId(priceId) {
+  const map = loadPreviewQuotaMap();
+  const id = String(priceId || '').trim();
+  if (!id || !(id in map)) return 0;
+  const quota = Number(map[id]);
+  return Number.isFinite(quota) && quota >= 0 ? Math.floor(quota) : 0;
+}
+
+/**
+ * Tenta consumir 1 crédito de pré-visualização (mês + débito atômico).
+ * @param {string|object} userId
+ * @returns {Promise<{ ok: true } | { ok: false, error: string, status: number, code?: string }>}
+ */
+export async function tryDebitPreviewCredit(userId) {
+  let userDoc = await User.findById(userId).lean();
+  if (!userDoc) return { ok: false, error: 'Usuário não encontrado', status: 404 };
+
+  if (isPartnerTestAppLocked(userDoc)) {
+    return { ok: false, error: PARTNER_LOCK_MSG, status: 403, code: 'PARTNER_TEST_LOCKED' };
+  }
+
+  /** Parceiro: cota fixa de pré-visualização (igual às simulações), sem recarga pelo mês civil. */
+  const isPartner = String(userDoc.accountType || '') === 'partner_test';
+  if (!isPartner) {
+    const periodKey = getCurrentQuotaPeriodKey();
+    if (String(userDoc.previewQuotaPeriodKey || '') !== periodKey) {
+      const updated = await User.findByIdAndUpdate(
+        userDoc._id,
+        {
+          $set: {
+            previewCreditsRemaining: userDoc.previewMonthlyQuota ?? 0,
+            previewQuotaPeriodKey: periodKey,
+          },
+        },
+        { new: true },
+      );
+      userDoc = updated;
+    }
+  }
+
+  const debited = await User.findOneAndUpdate(
+    { _id: userId, previewCreditsRemaining: { $gt: 0 } },
+    { $inc: { previewCreditsRemaining: -1 } },
+    { new: true },
+  );
+  if (!debited) {
+    return {
+      ok: false,
+      error: 'Limite de pré-visualizações do mês atingido',
+      status: 403,
+      code: 'PREVIEW_LIMIT_REACHED',
+    };
+  }
+  return { ok: true };
+}
+
+/** Devolve 1 crédito de preview após falha do agente. */
+export async function refundPreviewCredit(userId) {
+  await User.findByIdAndUpdate(userId, { $inc: { previewCreditsRemaining: 1 } });
 }
