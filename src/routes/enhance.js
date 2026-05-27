@@ -13,6 +13,33 @@ import {
   refundPreviewCredit,
 } from '../services/simulationQuotas.js';
 import { resolveEnhanceRegioes } from '../services/enhanceDefaultRegions.js';
+import mongoose from 'mongoose';
+import { Patient } from '../models/patient.js';
+import { patientHasPhotoConsent } from '../services/patients.js';
+
+async function assertPatientConsentForEnhance(userId, parsed) {
+  const ack = String(parsed.patientConsentAck ?? '').trim();
+  const ackOk = ack === '1' || ack.toLowerCase() === 'true' || ack.toLowerCase() === 'yes' || ack === 'on';
+  if (!ackOk) {
+    return { ok: false, message: 'Confirme o consentimento do paciente antes de processar a foto.', code: 'PATIENT_CONSENT_REQUIRED' };
+  }
+  const patientId = String(parsed.patientId || '').trim();
+  if (!patientId || !mongoose.isValidObjectId(patientId)) {
+    return { ok: false, message: 'Informe o paciente vinculado à simulação.', code: 'PATIENT_CONSENT_REQUIRED' };
+  }
+  const patient = await Patient.findOne({ _id: patientId, userId }).lean();
+  if (!patient) {
+    return { ok: false, message: 'Paciente não encontrado.', code: 'PATIENT_CONSENT_REQUIRED' };
+  }
+  if (!patientHasPhotoConsent(patient)) {
+    return {
+      ok: false,
+      message: 'Registre o consentimento do paciente antes de enviar a foto para a IA.',
+      code: 'PATIENT_CONSENT_REQUIRED',
+    };
+  }
+  return { ok: true };
+}
 
 function extFromMime(mime, filename) {
   const m = String(mime || '').toLowerCase();
@@ -70,6 +97,12 @@ export function createEnhancePostRouter(requireAuth) {
           message:
             'Não foi possível determinar as regiões-alvo para a IA (procedimento não reconhecido ou regiões vazias).',
         });
+        return;
+      }
+
+      const consentCheck = await assertPatientConsentForEnhance(userId, parsed);
+      if (!consentCheck.ok) {
+        res.status(400).json({ message: consentCheck.message, code: consentCheck.code });
         return;
       }
 

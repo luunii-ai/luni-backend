@@ -9,6 +9,14 @@ const patientSchema = new mongoose.Schema(
     notes: { type: String, default: '' },
     avatarUrl: { type: String, default: '' },
     lastVisit: { type: Date, default: null },
+    photoConsentAt: { type: Date, default: null },
+    photoConsentVersion: { type: String, default: '' },
+    photoConsentMethod: {
+      type: String,
+      enum: ['attested_by_professional'],
+      default: 'attested_by_professional',
+    },
+    photoConsentedByUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   },
   { timestamps: true },
 );

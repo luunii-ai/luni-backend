@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import { Simulation } from '../models/simulation.js';
 import { Patient } from '../models/patient.js';
-import { findOrCreatePatientByContact } from './patients.js';
+import { findOrCreatePatientByContact, patientHasPhotoConsent } from './patients.js';
 
 const MAX_IMAGE_LEN = 120_000;
 
@@ -27,6 +27,8 @@ export function simulationToDto(doc) {
     enhancePairId: doc.enhancePairId || undefined,
     activePointIds: Array.isArray(doc.activePointIds) && doc.activePointIds.length ? doc.activePointIds : undefined,
     saleCompleted: doc.saleCompleted === true,
+    patientConsentAt: doc.patientConsentAt ? doc.patientConsentAt.toISOString() : undefined,
+    patientConsentVersion: doc.patientConsentVersion || undefined,
   };
 }
 
@@ -84,6 +86,10 @@ export async function createSimulation(userId, body) {
     return { error: 'Paciente inválido', status: 400 };
   }
 
+  if (!patientHasPhotoConsent(patient)) {
+    return { error: 'Consentimento do paciente necessário antes de salvar a simulação.', status: 400 };
+  }
+
   const date = body.date ? new Date(body.date) : new Date();
   const snapName = String(body.patientName ?? '').trim() || String(patient.name ?? '').trim();
   const snapPhone = String(body.patientPhone ?? '').trim() || String(patient.phone ?? '').trim();
@@ -103,6 +109,8 @@ export async function createSimulation(userId, body) {
     image: trimImage(body.image),
     enhancePairId: String(body.enhancePairId || '').trim(),
     activePointIds: Array.isArray(body.activePointIds) ? body.activePointIds.map(Number).filter((n) => !Number.isNaN(n)) : [],
+    patientConsentAt: patient.photoConsentAt || null,
+    patientConsentVersion: patient.photoConsentVersion || '',
   });
 
   await Patient.updateOne({ _id: patientObjectId }, { $set: { lastVisit: date } });

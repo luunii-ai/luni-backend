@@ -15,6 +15,21 @@ import {
   syncUserQuotaFromStripeSubscription,
   zeroUserQuota,
 } from './simulationQuotas.js';
+import { LEGAL_VERSION } from '../legal/version.js';
+import { stripeSubscriptionFields } from './stripeSubscriptionFields.js';
+
+function resolveTermsFieldsFromSession(session) {
+  const version = String(session.metadata?.app_terms_version || LEGAL_VERSION).trim();
+  const rawAt = String(session.metadata?.app_terms_accepted_at || '').trim();
+  const acceptedAt = rawAt ? new Date(rawAt) : new Date();
+  if (Number.isNaN(acceptedAt.getTime())) return null;
+  return {
+    termsAcceptedAt: acceptedAt,
+    privacyAcceptedAt: acceptedAt,
+    termsVersion: version || LEGAL_VERSION,
+    patientDataResponsibilityAckAt: acceptedAt,
+  };
+}
 
 async function handleCheckoutSessionCompleted(session) {
   if (session.mode !== 'subscription') return;
@@ -39,16 +54,16 @@ async function handleCheckoutSessionCompleted(session) {
   const name = String(session.metadata?.app_user_name || 'Usuário').trim() || 'Usuário';
   const clinic = String(session.metadata?.app_user_clinic || '').trim();
 
-  const trialEndsAt = sub.trial_end ? new Date(sub.trial_end * 1000) : null;
-  const status = sub.status;
+  const stripeFields = stripeSubscriptionFields(sub);
+  const termsFields = resolveTermsFieldsFromSession(session);
 
   const user = await findUserByEmail(email);
   if (user) {
     await updateUserStripeFields(user._id, {
       stripeCustomerId: String(customerId),
       stripeSubscriptionId: String(subscriptionId),
-      subscriptionStatus: status,
-      trialEndsAt,
+      ...stripeFields,
+      ...(termsFields || {}),
     });
     await syncUserQuotaFromStripeSubscription(user._id, sub);
     if (String(user.accountType || '') === 'partner_test') {
@@ -75,8 +90,8 @@ async function handleCheckoutSessionCompleted(session) {
   await updateUserStripeFields(newUser._id, {
     stripeCustomerId: String(customerId),
     stripeSubscriptionId: String(subscriptionId),
-    subscriptionStatus: status,
-    trialEndsAt,
+    ...stripeSubscriptionFields(sub),
+    ...(termsFields || {}),
   });
   await syncUserQuotaFromStripeSubscription(newUser._id, sub);
   await sendSubscriptionWelcomeEmail({
@@ -92,12 +107,8 @@ async function handleSubscriptionUpdated(subscription) {
   const user = await findUserByStripeSubscriptionId(subscription.id);
   if (!user) return;
 
-  const trialEndsAt = subscription.trial_end
-    ? new Date(subscription.trial_end * 1000)
-    : user.trialEndsAt;
   await updateUserStripeFields(user._id, {
-    subscriptionStatus: subscription.status,
-    trialEndsAt,
+    ...stripeSubscriptionFields(subscription),
   });
 
   if (TERMINAL_SUBSCRIPTION_STATUSES.has(String(subscription.status || '').toLowerCase())) {

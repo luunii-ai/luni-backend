@@ -1,4 +1,6 @@
 import { getStripe } from './stripeClient.js';
+import { updateUserStripeFields } from './users.js';
+import { stripeSubscriptionFields } from './stripeSubscriptionFields.js';
 
 function isoOrNull(epochSeconds) {
   if (!epochSeconds) return null;
@@ -42,6 +44,8 @@ export async function getCurrentSubscriptionSummary(user) {
   const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
     expand: ['items.data.price.product'],
   });
+
+  await updateUserStripeFields(user._id, stripeSubscriptionFields(subscription));
 
   const firstItem = subscription.items?.data?.[0];
   return {

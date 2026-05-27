@@ -20,7 +20,15 @@ export function userToPublic(doc) {
   };
   if (doc.subscriptionStatus) out.subscriptionStatus = doc.subscriptionStatus;
   if (doc.trialEndsAt) out.trialEndsAt = doc.trialEndsAt.toISOString();
+  if (doc.currentPeriodEnd) out.currentPeriodEnd = doc.currentPeriodEnd.toISOString();
+  if (doc.cancelAtPeriodEnd === true) out.cancelAtPeriodEnd = true;
   if (doc.partnerTestExpiresAt) out.partnerTestExpiresAt = doc.partnerTestExpiresAt.toISOString();
+  if (doc.termsAcceptedAt) out.termsAcceptedAt = doc.termsAcceptedAt.toISOString();
+  if (doc.privacyAcceptedAt) out.privacyAcceptedAt = doc.privacyAcceptedAt.toISOString();
+  if (doc.termsVersion) out.termsVersion = doc.termsVersion;
+  if (doc.patientDataResponsibilityAckAt) {
+    out.patientDataResponsibilityAckAt = doc.patientDataResponsibilityAckAt.toISOString();
+  }
   return out;
 }
 
@@ -120,10 +128,39 @@ export async function updateUserStripeFields(userId, fields) {
   if (fields.stripeSubscriptionId !== undefined) set.stripeSubscriptionId = String(fields.stripeSubscriptionId || '').trim();
   if (fields.subscriptionStatus !== undefined) set.subscriptionStatus = String(fields.subscriptionStatus || '').trim();
   if (fields.trialEndsAt !== undefined) set.trialEndsAt = fields.trialEndsAt;
+  if (fields.currentPeriodEnd !== undefined) set.currentPeriodEnd = fields.currentPeriodEnd;
+  if (fields.cancelAtPeriodEnd !== undefined) set.cancelAtPeriodEnd = fields.cancelAtPeriodEnd === true;
   if (fields.accountType !== undefined) set.accountType = fields.accountType;
   if (fields.partnerTestExpiresAt !== undefined) set.partnerTestExpiresAt = fields.partnerTestExpiresAt;
+  if (fields.termsAcceptedAt !== undefined) set.termsAcceptedAt = fields.termsAcceptedAt;
+  if (fields.privacyAcceptedAt !== undefined) set.privacyAcceptedAt = fields.privacyAcceptedAt;
+  if (fields.termsVersion !== undefined) set.termsVersion = String(fields.termsVersion || '').trim();
+  if (fields.patientDataResponsibilityAckAt !== undefined) {
+    set.patientDataResponsibilityAckAt = fields.patientDataResponsibilityAckAt;
+  }
   if (Object.keys(set).length === 0) return User.findById(userId);
   return User.findByIdAndUpdate(userId, { $set: set }, { new: true });
+}
+
+export async function acceptUserTerms(userId, { termsVersion, acceptTerms, acceptPrivacy, acceptPatientResponsibility }) {
+  if (!acceptTerms || !acceptPrivacy || !acceptPatientResponsibility) {
+    return { error: 'É necessário aceitar todos os termos e declarações.', status: 400 };
+  }
+  const now = new Date();
+  const user = await User.findByIdAndUpdate(
+    userId,
+    {
+      $set: {
+        termsAcceptedAt: now,
+        privacyAcceptedAt: now,
+        termsVersion: String(termsVersion || '').trim(),
+        patientDataResponsibilityAckAt: now,
+      },
+    },
+    { new: true },
+  );
+  if (!user) return { error: 'Usuário não encontrado', status: 404 };
+  return { user };
 }
 
 /**

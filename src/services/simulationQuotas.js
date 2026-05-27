@@ -1,5 +1,6 @@
 import { User } from '../models/user.js';
 import { isPartnerTestAppLocked } from './partnerTestAccess.js';
+import { isSubscriptionAppLocked, getSubscriptionLockState } from './subscriptionAccess.js';
 
 const PARTNER_LOCK_MSG = 'Período de teste encerrado. Contrate um plano em Configurações para continuar.';
 
@@ -117,6 +118,16 @@ export async function tryDebitSimulationCredit(userId) {
     return { ok: false, error: PARTNER_LOCK_MSG, status: 403, code: 'PARTNER_TEST_LOCKED' };
   }
 
+  if (isSubscriptionAppLocked(userDoc)) {
+    const subLock = getSubscriptionLockState(userDoc);
+    return {
+      ok: false,
+      error: subLock.message || 'Assinatura inativa.',
+      status: 403,
+      code: subLock.code || 'SUBSCRIPTION_CANCELED',
+    };
+  }
+
   if (String(userDoc.simulationQuotaPeriodKey || '') !== getCurrentQuotaPeriodKey()) {
     userDoc = await applyQuotaPeriodResetIfNeeded(userDoc);
   }
@@ -170,6 +181,16 @@ export async function tryDebitPreviewCredit(userId) {
 
   if (isPartnerTestAppLocked(userDoc)) {
     return { ok: false, error: PARTNER_LOCK_MSG, status: 403, code: 'PARTNER_TEST_LOCKED' };
+  }
+
+  if (isSubscriptionAppLocked(userDoc)) {
+    const subLock = getSubscriptionLockState(userDoc);
+    return {
+      ok: false,
+      error: subLock.message || 'Assinatura inativa.',
+      status: 403,
+      code: subLock.code || 'SUBSCRIPTION_CANCELED',
+    };
   }
 
   /** Parceiro: cota fixa de pré-visualização (igual às simulações), sem recarga pelo mês civil. */

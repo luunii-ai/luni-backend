@@ -15,6 +15,7 @@ import { createSubscriptionsRouter } from './routes/subscriptions.js';
 import { createAdminRouter } from './routes/admin.js';
 import { createRequireAdmin } from './middleware/admin.js';
 import { createPartnerTestLockGuard } from './middleware/partnerTestLock.js';
+import { createTermsAcceptanceGuard } from './middleware/termsAcceptanceGuard.js';
 import { stripeWebhookHandler } from './routes/stripeWebhook.js';
 import { seedProceduresIfEmpty } from './services/procedures.js';
 
@@ -61,7 +62,9 @@ export async function createApp() {
   const requireAuth = createRequireAuth(JWT_SECRET);
   const requireAdmin = createRequireAdmin();
   const partnerTestLockGuard = createPartnerTestLockGuard(JWT_SECRET);
+  const termsAcceptanceGuard = createTermsAcceptanceGuard(JWT_SECRET);
   app.use(partnerTestLockGuard);
+  app.use(termsAcceptanceGuard);
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true });

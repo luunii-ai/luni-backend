@@ -6,6 +6,7 @@ import {
   updatePatient,
   findOrCreatePatientByContact,
   deletePatient,
+  recordPatientPhotoConsent,
 } from '../services/patients.js';
 import { listSimulations } from '../services/simulations.js';
 
@@ -37,13 +38,31 @@ export function createPatientsRouter(requireAuth) {
   /** Busca por e-mail ou cria paciente (fluxo nova simulação). */
   r.post('/patients/ensure', async (req, res) => {
     try {
-      const { name, email, phone } = req.body || {};
-      const id = await findOrCreatePatientByContact(req.userId, { name, email, phone });
+      const { name, email, phone, recordPhotoConsent } = req.body || {};
+      const id = await findOrCreatePatientByContact(req.userId, { name, email, phone, recordPhotoConsent: recordPhotoConsent === true });
+      if (recordPhotoConsent === true) {
+        await recordPatientPhotoConsent(req.userId, String(id));
+      }
       const p = await getPatientById(req.userId, String(id));
       res.json(p);
     } catch (e) {
       console.error(e);
       res.status(500).json({ message: 'Erro ao garantir paciente' });
+    }
+  });
+
+  r.post('/patients/:id/photo-consent', async (req, res) => {
+    try {
+      const { consentVersion } = req.body || {};
+      const result = await recordPatientPhotoConsent(req.userId, req.params.id, { consentVersion });
+      if (result.error) {
+        res.status(result.status || 400).json({ message: result.error });
+        return;
+      }
+      res.json(result.patient);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ message: 'Erro ao registrar consentimento' });
     }
   });
 

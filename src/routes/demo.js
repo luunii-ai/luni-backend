@@ -147,6 +147,17 @@ export function createDemoRouter() {
         }
       }
 
+      const rightsAck = String(parsed.imageRightsAck ?? '').trim();
+      const rightsOk =
+        rightsAck === '1' || rightsAck.toLowerCase() === 'true' || rightsAck.toLowerCase() === 'yes' || rightsAck === 'on';
+      if (!rightsOk) {
+        res.status(400).json({
+          message: 'Confirme que você tem direito de usar esta imagem.',
+          code: 'IMAGE_RIGHTS_ACK_REQUIRED',
+        });
+        return;
+      }
+
       const intensidade = normalizeIntensity(parsed.intensidade);
       const pctFromClient =
         parsed.intensidadePct != null && Number.isFinite(parsed.intensidadePct)

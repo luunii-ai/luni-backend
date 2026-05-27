@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { Patient } from '../models/patient.js';
 import { Simulation } from '../models/simulation.js';
+import { LEGAL_VERSION } from '../legal/version.js';
 
 export function patientToDto(doc, proceduresSimulated = 0) {
   return {
@@ -12,7 +13,35 @@ export function patientToDto(doc, proceduresSimulated = 0) {
     proceduresSimulated,
     notes: doc.notes || '',
     avatarUrl: doc.avatarUrl || undefined,
+    photoConsentAt: doc.photoConsentAt ? doc.photoConsentAt.toISOString() : undefined,
+    photoConsentVersion: doc.photoConsentVersion || undefined,
   };
+}
+
+export function patientHasPhotoConsent(patient, version = LEGAL_VERSION) {
+  if (!patient?.photoConsentAt) return false;
+  const v = String(patient.photoConsentVersion || '').trim();
+  return !v || v === String(version).trim();
+}
+
+export async function recordPatientPhotoConsent(userId, patientId, { consentVersion = LEGAL_VERSION } = {}) {
+  if (!mongoose.isValidObjectId(patientId)) return { error: 'Paciente inválido', status: 400 };
+  const now = new Date();
+  const doc = await Patient.findOneAndUpdate(
+    { _id: patientId, userId },
+    {
+      $set: {
+        photoConsentAt: now,
+        photoConsentVersion: String(consentVersion).trim() || LEGAL_VERSION,
+        photoConsentMethod: 'attested_by_professional',
+        photoConsentedByUserId: userId,
+      },
+    },
+    { new: true },
+  ).lean();
+  if (!doc) return { error: 'Paciente não encontrado', status: 404 };
+  const n = await Simulation.countDocuments({ userId, patientId: doc._id });
+  return { patient: patientToDto(doc, n) };
 }
 
 export async function countSimulationsForPatient(userId, patientId) {
@@ -75,7 +104,7 @@ export async function updatePatient(userId, patientId, body) {
 /**
  * Busca por email (mesmo user) ou cria novo paciente.
  */
-export async function findOrCreatePatientByContact(userId, { name, email, phone }) {
+export async function findOrCreatePatientByContact(userId, { name, email, phone, recordPhotoConsent = false }) {
   const em = String(email || '').toLowerCase().trim();
   const ph = String(phone || '').trim();
   if (em) {
@@ -109,6 +138,14 @@ export async function findOrCreatePatientByContact(userId, { name, email, phone 
     phone: String(phone || '').trim(),
     notes: '',
     lastVisit: new Date(),
+    ...(recordPhotoConsent
+      ? {
+          photoConsentAt: new Date(),
+          photoConsentVersion: LEGAL_VERSION,
+          photoConsentMethod: 'attested_by_professional',
+          photoConsentedByUserId: userId,
+        }
+      : {}),
   });
   return doc._id;
 }

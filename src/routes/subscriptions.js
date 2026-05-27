@@ -3,6 +3,7 @@ import { isStripeConfigured } from '../services/stripeClient.js';
 import { listPlans } from '../services/subscriptionPlans.js';
 import { createSubscriptionCheckoutSession } from '../services/checkoutSessions.js';
 import { findUserByEmail, findUserById, findUserByStripeSubscriptionId } from '../services/users.js';
+import { LEGAL_VERSION } from '../legal/version.js';
 import {
   createBillingPortalSessionForUser,
   getCurrentSubscriptionSummary,
@@ -38,9 +39,35 @@ export function createSubscriptionsRouter(requireAuth) {
         res.status(503).json({ message: 'Pagamentos não configurados (STRIPE_SECRET_KEY)' });
         return;
       }
-      const { email, name, clinic, priceId, trialPeriodDays, checkoutUi, promotionCode } = req.body || {};
+      const {
+        email,
+        name,
+        clinic,
+        priceId,
+        trialPeriodDays,
+        checkoutUi,
+        promotionCode,
+        termsAccepted,
+        termsVersion,
+        patientDataResponsibilityAck,
+      } = req.body || {};
       if (!email || !name || !priceId) {
         res.status(400).json({ message: 'email, name e priceId são obrigatórios' });
+        return;
+      }
+      if (termsAccepted !== true) {
+        res.status(400).json({ message: 'É necessário aceitar os Termos de Uso e a Política de Privacidade.' });
+        return;
+      }
+      if (patientDataResponsibilityAck !== true) {
+        res.status(400).json({
+          message: 'É necessário declarar responsabilidade sobre o consentimento dos pacientes.',
+        });
+        return;
+      }
+      const effectiveTermsVersion = String(termsVersion || LEGAL_VERSION).trim();
+      if (effectiveTermsVersion !== LEGAL_VERSION) {
+        res.status(400).json({ message: 'Versão dos termos desatualizada. Recarregue a página e tente novamente.' });
         return;
       }
       const existingUser = await findUserByEmail(email);
@@ -70,6 +97,8 @@ export function createSubscriptionsRouter(requireAuth) {
         trialPeriodDays: effectiveTrialPeriodDays,
         checkoutUi: ui,
         promotionCode,
+        termsVersion: effectiveTermsVersion,
+        termsAcceptedAt: new Date().toISOString(),
       });
 
       if (ui === 'embedded') {

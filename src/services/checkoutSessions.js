@@ -48,6 +48,8 @@ async function buildCheckoutPromoFields(stripe, promotionCode) {
  * @param {boolean} [params.skipTrial] — se true, não envia trial_period_days (ex.: upgrade parceiro)
  * @param {string} [params.stripeCustomerId] — customer existente (Mongo); tem prioridade sobre busca por e-mail
  * @param {string} [params.promotionCode] — código promocional Stripe (opcional)
+ * @param {string} [params.termsVersion]
+ * @param {string} [params.termsAcceptedAt] — ISO
  */
 export async function createSubscriptionCheckoutSession({
   email,
@@ -59,6 +61,8 @@ export async function createSubscriptionCheckoutSession({
   skipTrial = false,
   stripeCustomerId: linkedStripeCustomerId = null,
   promotionCode = null,
+  termsVersion = null,
+  termsAcceptedAt = null,
 }) {
   const allowed = await isAllowedPriceId(priceId);
   if (!allowed) {
@@ -80,6 +84,8 @@ export async function createSubscriptionCheckoutSession({
     app_user_name: String(name || '').trim() || 'Usuário',
     app_user_clinic: String(clinic || '').trim(),
   };
+  if (termsVersion) metadata.app_terms_version = String(termsVersion).trim();
+  if (termsAcceptedAt) metadata.app_terms_accepted_at = String(termsAcceptedAt).trim();
 
   const subscriptionData = {
     metadata: { ...metadata },

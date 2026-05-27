@@ -1,7 +1,6 @@
 import { createHash, randomBytes } from 'crypto';
 import { Router } from 'express';
 import {
-  createUser,
   findUserByEmail,
   verifyPassword,
   userToPublic,
@@ -9,7 +8,9 @@ import {
   findUserByIdWithQuotaReset,
   updateUserById,
   updateUserPassword,
+  acceptUserTerms,
 } from '../services/users.js';
+import { LEGAL_VERSION } from '../legal/version.js';
 import { signUserToken } from '../services/jwt.js';
 import { PasswordResetToken } from '../models/passwordResetToken.js';
 import { sendPasswordResetEmail } from '../services/email.js';
@@ -21,25 +22,11 @@ function hashToken(raw) {
 export function createAuthRouter(jwtSecret) {
   const r = Router();
 
-  r.post('/signup', async (req, res) => {
-    try {
-      const { name, clinic, email, password } = req.body || {};
-      if (!name || !email || !password) {
-        res.status(400).json({ message: 'Nome, e-mail e senha são obrigatórios' });
-        return;
-      }
-      const existing = await findUserByEmail(email);
-      if (existing) {
-        res.status(409).json({ message: 'E-mail já cadastrado' });
-        return;
-      }
-      const user = await createUser({ name, clinic, email, password });
-      const token = signUserToken(user._id, jwtSecret);
-      res.status(201).json({ token, user: userToPublic(user) });
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ message: 'Erro ao cadastrar' });
-    }
+  r.post('/signup', async (_req, res) => {
+    res.status(403).json({
+      message:
+        'Cadastro público desativado. Assine um plano em nosso site ou utilize a conta criada pelo administrador.',
+    });
   });
 
   r.post('/login', async (req, res) => {
@@ -149,6 +136,10 @@ const PATCH_ME_FORBIDDEN_KEYS = new Set([
   'stripeSubscriptionId',
   'passwordHash',
   'firstAccess',
+  'termsAcceptedAt',
+  'privacyAcceptedAt',
+  'termsVersion',
+  'patientDataResponsibilityAckAt',
 ]);
 
 export function createMeRouter(jwtSecret, requireAuth) {
@@ -195,6 +186,31 @@ export function createMeRouter(jwtSecret, requireAuth) {
       }
       console.error(e);
       res.status(500).json({ message: 'Erro ao atualizar perfil' });
+    }
+  });
+
+  r.post('/me/accept-terms', async (req, res) => {
+    try {
+      const { termsVersion, acceptTerms, acceptPrivacy, acceptPatientResponsibility } = req.body || {};
+      const version = String(termsVersion || '').trim();
+      if (version !== LEGAL_VERSION) {
+        res.status(400).json({ message: 'Versão dos termos desatualizada. Recarregue a página e tente novamente.' });
+        return;
+      }
+      const result = await acceptUserTerms(req.userId, {
+        termsVersion: version,
+        acceptTerms: acceptTerms === true,
+        acceptPrivacy: acceptPrivacy === true,
+        acceptPatientResponsibility: acceptPatientResponsibility === true,
+      });
+      if (result.error) {
+        res.status(result.status || 400).json({ message: result.error });
+        return;
+      }
+      res.json(userToPublic(result.user));
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ message: 'Erro ao registrar aceite dos termos' });
     }
   });
 

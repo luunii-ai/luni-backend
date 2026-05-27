@@ -19,6 +19,8 @@ const simulationSchema = new mongoose.Schema(
     activePointIds: { type: [Number], default: [] },
     /** Indica se a simulação resultou em venda real do procedimento. */
     saleCompleted: { type: Boolean, default: false },
+    patientConsentAt: { type: Date, default: null },
+    patientConsentVersion: { type: String, default: '' },
   },
   { timestamps: true },
 );

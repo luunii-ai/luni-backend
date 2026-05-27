@@ -1,6 +1,7 @@
 import { User } from '../models/user.js';
 import { verifyUserToken } from '../services/jwt.js';
 import { isPartnerTestAppLocked } from '../services/partnerTestAccess.js';
+import { getSubscriptionLockState, isSubscriptionAppLocked } from '../services/subscriptionAccess.js';
 
 function pathname(url) {
   const q = url.indexOf('?');
@@ -18,8 +19,8 @@ function skipPartnerLockAlways(p) {
   return false;
 }
 
-/** Com conta parceira bloqueada, estas rotas continuam permitidas. */
-function exemptWhenPartnerLocked(p) {
+/** Com conta bloqueada (parceiro ou assinatura inativa), estas rotas continuam permitidas. */
+function exemptWhenBillingLocked(p) {
   if (p === '/api/me' || p.startsWith('/api/me/')) return true;
   if (p === '/api/subscriptions/checkout-official') return true;
   if (p === '/api/subscriptions/current') return true;
@@ -42,11 +43,26 @@ export function createPartnerTestLockGuard(jwtSecret) {
     if (!userId) return next();
 
     const user = await User.findById(userId).lean();
-    if (!user || user.accountType !== 'partner_test') return next();
-    if (String(user.stripeSubscriptionId || '').trim()) return next();
-    if (!isPartnerTestAppLocked(user)) return next();
-    if (exemptWhenPartnerLocked(p)) return next();
+    if (!user) return next();
 
-    res.status(403).json({ message: LOCK_MESSAGE, code: 'PARTNER_TEST_LOCKED' });
+    if (user.accountType === 'partner_test') {
+      if (String(user.stripeSubscriptionId || '').trim()) {
+        // Parceiro que assinou: regras de assinatura abaixo.
+      } else if (!isPartnerTestAppLocked(user)) {
+        return next();
+      } else if (exemptWhenBillingLocked(p)) {
+        return next();
+      }
+      return res.status(403).json({ message: LOCK_MESSAGE, code: 'PARTNER_TEST_LOCKED' });
+    }
+
+    if (!isSubscriptionAppLocked(user)) return next();
+    if (exemptWhenBillingLocked(p)) return next();
+
+    const subLock = getSubscriptionLockState(user);
+    return res.status(403).json({
+      message: subLock.message || 'Assinatura inativa.',
+      code: subLock.code || 'SUBSCRIPTION_CANCELED',
+    });
   };
 }

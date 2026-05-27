@@ -15,6 +15,12 @@ export function parseEnhanceMultipart(req) {
     let detalhes = '';
     /** @type {string} */
     let siliconeAck = '';
+    /** @type {string} */
+    let patientId = '';
+    /** @type {string} */
+    let patientConsentAck = '';
+    /** @type {string} */
+    let imageRightsAck = '';
     /** @type {number | undefined} */
     let intensidadePct;
     /** @type {Buffer | null} */
@@ -64,6 +70,12 @@ export function parseEnhanceMultipart(req) {
         detalhes = String(val ?? '');
       } else if (name === 'silicone_ack') {
         siliconeAck = String(val ?? '').trim();
+      } else if (name === 'patient_id') {
+        patientId = String(val ?? '').trim();
+      } else if (name === 'patient_consent_ack') {
+        patientConsentAck = String(val ?? '').trim();
+      } else if (name === 'image_rights_ack') {
+        imageRightsAck = String(val ?? '').trim();
       }
     });
 
@@ -79,6 +91,9 @@ export function parseEnhanceMultipart(req) {
         practiceProfile,
         detalhes,
         siliconeAck,
+        patientId,
+        patientConsentAck,
+        imageRightsAck,
       });
     });
 
