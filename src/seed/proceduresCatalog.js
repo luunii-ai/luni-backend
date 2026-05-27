@@ -1,4 +1,6 @@
 /** Catálogo inicial. `practiceProfileScope` separa lista da clínica (injetáveis/harmonização) da do cirurgião. */
+
+/** Textos alinhados a `tipo_procedimento` no enhance (portal) e fallback em `enhanceDefaultRegions.js`. */
 export const proceduresCatalog = [
   {
     slug: 'lip-filler',
@@ -10,6 +12,7 @@ export const proceduresCatalog = [
     costPerPoint: 0,
     pricePerPoint: 0,
     practiceProfileScope: 'clinic',
+    defaultEnhanceRegions: 'lábios e contorno dos lábios',
   },
   {
     slug: 'botox',
@@ -21,6 +24,7 @@ export const proceduresCatalog = [
     costPerPoint: 15,
     pricePerPoint: 45,
     practiceProfileScope: 'clinic',
+    defaultEnhanceRegions: 'testa, glabela e região periorbital',
   },
   {
     slug: 'jawline',
@@ -32,6 +36,7 @@ export const proceduresCatalog = [
     costPerPoint: 0,
     pricePerPoint: 0,
     practiceProfileScope: 'clinic',
+    defaultEnhanceRegions: 'mandíbula, ângulos da mandíbula e perfil inferior',
   },
   {
     slug: 'cheek-filler',
@@ -43,6 +48,7 @@ export const proceduresCatalog = [
     costPerPoint: 0,
     pricePerPoint: 0,
     practiceProfileScope: 'clinic',
+    defaultEnhanceRegions: 'maçãs do rosto e terço médio',
   },
   {
     slug: 'nose',
@@ -54,6 +60,7 @@ export const proceduresCatalog = [
     costPerPoint: 0,
     pricePerPoint: 0,
     practiceProfileScope: 'clinic',
+    defaultEnhanceRegions: 'nariz e dorso nasal',
   },
   {
     slug: 'bigode-chines',
@@ -65,6 +72,7 @@ export const proceduresCatalog = [
     costPerPoint: 0,
     pricePerPoint: 0,
     practiceProfileScope: 'clinic',
+    defaultEnhanceRegions: 'sulco nasogeniano e linhas ao redor do nariz e boca',
   },
   {
     slug: 'mento',
@@ -76,6 +84,7 @@ export const proceduresCatalog = [
     costPerPoint: 0,
     pricePerPoint: 0,
     practiceProfileScope: 'clinic',
+    defaultEnhanceRegions: 'mento e contorno anterior do queixo',
   },
   {
     slug: 'lipo-hd',
@@ -87,6 +96,7 @@ export const proceduresCatalog = [
     costPerPoint: 0,
     pricePerPoint: 0,
     practiceProfileScope: 'surgeon',
+    defaultEnhanceRegions: 'abdômen, flancos e definição de contornos corporais',
   },
   {
     slug: 'papada',
@@ -98,6 +108,7 @@ export const proceduresCatalog = [
     costPerPoint: 0,
     pricePerPoint: 0,
     practiceProfileScope: 'surgeon',
+    defaultEnhanceRegions: 'região submentoniana, pescoço e transição cervical',
   },
   {
     slug: 'lifting-braco',
@@ -109,6 +120,7 @@ export const proceduresCatalog = [
     costPerPoint: 0,
     pricePerPoint: 0,
     practiceProfileScope: 'surgeon',
+    defaultEnhanceRegions: 'braços, terços médio e proximal e axilas',
   },
   {
     slug: 'mamoplastia-silicone',
@@ -120,6 +132,7 @@ export const proceduresCatalog = [
     costPerPoint: 0,
     pricePerPoint: 0,
     practiceProfileScope: 'surgeon',
+    defaultEnhanceRegions: 'mamas',
   },
   {
     slug: 'rinoplastia',
@@ -131,6 +144,7 @@ export const proceduresCatalog = [
     costPerPoint: 0,
     pricePerPoint: 0,
     practiceProfileScope: 'surgeon',
+    defaultEnhanceRegions: 'nariz, ponta nasal e dorso',
   },
   {
     slug: 'otoplastia',
@@ -142,5 +156,6 @@ export const proceduresCatalog = [
     costPerPoint: 0,
     pricePerPoint: 0,
     practiceProfileScope: 'surgeon',
+    defaultEnhanceRegions: 'pavilhões auriculares e orelhas',
   },
 ];

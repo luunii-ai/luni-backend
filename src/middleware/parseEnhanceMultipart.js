@@ -3,7 +3,7 @@ import busboy from 'busboy';
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
 /**
- * Parseia multipart do mesmo formato do front (image + tipo_procedimento repetido + regioes + intensidade + practice_profile opcional).
+ * Parseia multipart do mesmo formato do front (image + tipo_procedimento repetido + regioes + intensidade + intensidade_pct opcional + practice_profile opcional).
  * @param {import('express').Request} req
  */
 export function parseEnhanceMultipart(req) {
@@ -13,6 +13,10 @@ export function parseEnhanceMultipart(req) {
     let intensidade = '';
     let practiceProfile = '';
     let detalhes = '';
+    /** @type {string} */
+    let siliconeAck = '';
+    /** @type {number | undefined} */
+    let intensidadePct;
     /** @type {Buffer | null} */
     let fileBuffer = null;
     let filename = 'upload.jpg';
@@ -48,10 +52,18 @@ export function parseEnhanceMultipart(req) {
         regioes = String(val ?? '');
       } else if (name === 'intensidade') {
         intensidade = String(val ?? '');
+      } else if (name === 'intensidade_pct' || name === 'intensidade_percent') {
+        const raw = String(val ?? '').trim();
+        if (raw) {
+          const n = Number.parseInt(raw, 10);
+          if (!Number.isNaN(n)) intensidadePct = Math.max(0, Math.min(100, n));
+        }
       } else if (name === 'practice_profile') {
         practiceProfile = String(val ?? '').trim();
       } else if (name === 'detalhes') {
         detalhes = String(val ?? '');
+      } else if (name === 'silicone_ack') {
+        siliconeAck = String(val ?? '').trim();
       }
     });
 
@@ -63,8 +75,10 @@ export function parseEnhanceMultipart(req) {
         tipos,
         regioes,
         intensidade,
+        intensidadePct,
         practiceProfile,
         detalhes,
+        siliconeAck,
       });
     });
 

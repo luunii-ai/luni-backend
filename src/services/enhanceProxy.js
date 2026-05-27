@@ -4,7 +4,7 @@ import FormData from 'form-data';
 /**
  * Encaminha o mesmo multipart ao agente.
  * @param {string} agentBaseUrl
- * @param {{ buffer: Buffer, filename: string, mime: string, tipos: string[], regioes: string, intensidade: string, practiceProfile?: string, detalhes?: string }} parts
+ * @param {{ buffer: Buffer, filename: string, mime: string, tipos: string[], regioes: string, intensidade: string, intensidadePct?: number, practiceProfile?: string, detalhes?: string }} parts
  */
 export async function forwardEnhanceToAgent(agentBaseUrl, parts) {
   const base = String(agentBaseUrl || '').replace(/\/$/, '');
@@ -18,6 +18,13 @@ export async function forwardEnhanceToAgent(agentBaseUrl, parts) {
   }
   fd.append('regioes', parts.regioes || '');
   fd.append('intensidade', parts.intensidade || 'moderado');
+  const ip =
+    parts.intensidadePct != null && Number.isFinite(parts.intensidadePct)
+      ? Math.max(0, Math.min(100, Math.round(parts.intensidadePct)))
+      : null;
+  if (ip !== null) {
+    fd.append('intensidade_pct', String(ip));
+  }
   const pp = parts.practiceProfile && String(parts.practiceProfile).trim();
   if (pp) fd.append('practice_profile', pp);
   const det = parts.detalhes != null ? String(parts.detalhes) : '';

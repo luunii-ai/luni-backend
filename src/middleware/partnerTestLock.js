@@ -11,6 +11,7 @@ function pathname(url) {
 function skipPartnerLockAlways(p) {
   if (p.startsWith('/api/auth')) return true;
   if (p.startsWith('/api/admin')) return true;
+  if (p.startsWith('/api/demo')) return true;
   if (p === '/api/subscriptions/plans') return true;
   if (p.startsWith('/api/subscriptions/checkout-session')) return true;
   if (p === '/api/subscriptions/checkout') return true;

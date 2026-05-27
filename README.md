@@ -26,7 +26,8 @@ O seed de **procedimentos** roda automaticamente na subida se a collection estiv
 
 - `POST /api/auth/signup`, `POST /api/auth/login`
 - `GET /api/me`, `PATCH /api/me` (Bearer)
-- `GET /api/procedures`, CRUD pacientes, simulações, `GET /api/dashboard/summary`
+- `GET /api/procedures`, CRUD pacientes, simulações, `GET /api/dashboard/summary` — em `procedures`, o campo **`defaultEnhanceRegions`** descreve regiões PT padrão para a IA (Nova simulação no portal).
+
 
 Health: `GET /health`
 

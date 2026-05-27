@@ -10,6 +10,7 @@ import { createPricingBasesRouter } from './routes/pricingBases.js';
 import { createDashboardRouter } from './routes/dashboard.js';
 import { createEnhancePostRouter } from './routes/enhance.js';
 import { createEnhancePairsRouter } from './routes/enhancePairs.js';
+import { createDemoRouter } from './routes/demo.js';
 import { createSubscriptionsRouter } from './routes/subscriptions.js';
 import { createAdminRouter } from './routes/admin.js';
 import { createRequireAdmin } from './middleware/admin.js';
@@ -37,6 +38,9 @@ export async function createApp() {
   await seedProceduresIfEmpty();
 
   const app = express();
+  if (process.env.TRUST_PROXY === '1') {
+    app.set('trust proxy', 1);
+  }
   app.use(
     cors({
       origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
@@ -62,6 +66,8 @@ export async function createApp() {
   app.get('/health', (_req, res) => {
     res.json({ ok: true });
   });
+
+  app.use('/api/demo', createDemoRouter());
 
   app.use(createEnhancePostRouter(requireAuth));
 

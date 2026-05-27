@@ -12,6 +12,7 @@ export function procedureToDto(doc) {
     costPerPoint: doc.costPerPoint,
     pricePerPoint: doc.pricePerPoint,
     practiceProfileScope: doc.practiceProfileScope,
+    defaultEnhanceRegions: doc.defaultEnhanceRegions || '',
   };
 }
 
@@ -43,6 +44,7 @@ export async function upsertProceduresFromCatalog() {
           costPerPoint: item.costPerPoint,
           pricePerPoint: item.pricePerPoint,
           practiceProfileScope: item.practiceProfileScope,
+          defaultEnhanceRegions: item.defaultEnhanceRegions ?? '',
         },
       },
       { upsert: true },

@@ -16,6 +16,8 @@ const procedureSchema = new mongoose.Schema(
       enum: ['clinic', 'surgeon'],
       required: true,
     },
+    /** Texto PT enviado à IA como `regioes` quando o cliente não descreve regiões à mão. */
+    defaultEnhanceRegions: { type: String, default: '' },
   },
   { timestamps: true },
 );

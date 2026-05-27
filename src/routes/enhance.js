@@ -12,6 +12,7 @@ import {
   tryDebitPreviewCredit,
   refundPreviewCredit,
 } from '../services/simulationQuotas.js';
+import { resolveEnhanceRegioes } from '../services/enhanceDefaultRegions.js';
 
 function extFromMime(mime, filename) {
   const m = String(mime || '').toLowerCase();
@@ -63,6 +64,15 @@ export function createEnhancePostRouter(requireAuth) {
         return;
       }
 
+      const regioesForAgent = resolveEnhanceRegioes(parsed.regioes, parsed.tipos);
+      if (!String(regioesForAgent || '').trim()) {
+        res.status(400).json({
+          message:
+            'Não foi possível determinar as regiões-alvo para a IA (procedimento não reconhecido ou regiões vazias).',
+        });
+        return;
+      }
+
       if (isPreview) {
         const debit = await tryDebitPreviewCredit(userId);
         if (!debit.ok) {
@@ -78,8 +88,9 @@ export function createEnhancePostRouter(requireAuth) {
           filename: parsed.filename,
           mime: parsed.mime,
           tipos: parsed.tipos,
-          regioes: parsed.regioes,
+          regioes: regioesForAgent,
           intensidade: parsed.intensidade,
+          intensidadePct: parsed.intensidadePct,
           practiceProfile: parsed.practiceProfile || undefined,
           detalhes: parsed.detalhes && String(parsed.detalhes).trim() ? String(parsed.detalhes).trim() : undefined,
         });
@@ -122,8 +133,9 @@ export function createEnhancePostRouter(requireAuth) {
         filename: parsed.filename,
         mime: parsed.mime,
         tipos: parsed.tipos,
-        regioes: parsed.regioes,
+        regioes: regioesForAgent,
         intensidade: parsed.intensidade,
+        intensidadePct: parsed.intensidadePct,
         practiceProfile: parsed.practiceProfile || undefined,
         detalhes: parsed.detalhes && String(parsed.detalhes).trim() ? String(parsed.detalhes).trim() : undefined,
       });
