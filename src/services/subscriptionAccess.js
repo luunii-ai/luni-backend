@@ -1,3 +1,5 @@
+import { isSubscriptionBypassUser } from './subscriptionBypass.js';
+
 /** Status Stripe com bloqueio imediato por inadimplência. */
 const PAYMENT_OVERDUE_STATUSES = new Set(['past_due', 'unpaid']);
 
@@ -23,6 +25,7 @@ function toDate(value) {
  */
 export function getSubscriptionLockState(userDoc) {
   if (!userDoc) return { locked: false };
+  if (isSubscriptionBypassUser(userDoc)) return { locked: false };
 
   if (String(userDoc.accountType || '') === 'partner_test') {
     if (!String(userDoc.stripeSubscriptionId || '').trim()) return { locked: false };

@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { User } from '../models/user.js';
 import { applyQuotaPeriodResetIfNeeded } from './simulationQuotas.js';
+import { isSubscriptionBypassUser } from './subscriptionBypass.js';
 
 export function userToPublic(doc) {
   const out = {
@@ -18,6 +19,8 @@ export function userToPublic(doc) {
     previewMonthlyQuota: doc.previewMonthlyQuota ?? 0,
     accountType: doc.accountType === 'partner_test' ? 'partner_test' : 'official',
   };
+  if (doc._id) out.id = String(doc._id);
+  if (isSubscriptionBypassUser(doc)) out.subscriptionBillingBypass = true;
   if (doc.subscriptionStatus) out.subscriptionStatus = doc.subscriptionStatus;
   if (doc.trialEndsAt) out.trialEndsAt = doc.trialEndsAt.toISOString();
   if (doc.currentPeriodEnd) out.currentPeriodEnd = doc.currentPeriodEnd.toISOString();
