@@ -5,6 +5,7 @@ import {
   createPatient,
   updatePatient,
   findOrCreatePatientByContact,
+  findPatientByPhone,
   deletePatient,
   recordPatientPhotoConsent,
 } from '../services/patients.js';
@@ -63,6 +64,21 @@ export function createPatientsRouter(requireAuth) {
     } catch (e) {
       console.error(e);
       res.status(500).json({ message: 'Erro ao registrar consentimento' });
+    }
+  });
+
+  r.get('/patients/phone-lookup', async (req, res) => {
+    try {
+      const phone = String(req.query.phone || '').trim();
+      if (!phone) {
+        res.json({ exists: false });
+        return;
+      }
+      const patient = await findPatientByPhone(req.userId, phone);
+      res.json({ exists: Boolean(patient), patient: patient || undefined });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ message: 'Erro ao verificar telefone' });
     }
   });
 

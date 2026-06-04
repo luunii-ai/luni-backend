@@ -72,6 +72,16 @@ export async function getPatientById(userId, patientId) {
   return patientToDto(p, n);
 }
 
+/** Paciente existente com o mesmo telefone (apenas dígitos), para aviso antes de agrupar simulações. */
+export async function findPatientByPhone(userId, phone) {
+  const ph = String(phone || '').trim();
+  if (!ph) return null;
+  const p = await Patient.findOne({ userId, phone: ph }).lean();
+  if (!p) return null;
+  const n = await Simulation.countDocuments({ userId, patientId: p._id });
+  return patientToDto(p, n);
+}
+
 export async function createPatient(userId, body) {
   const doc = await Patient.create({
     userId,
