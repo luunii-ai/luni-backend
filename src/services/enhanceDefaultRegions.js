@@ -11,6 +11,7 @@ const BY_TIPO = {
   Rinomodelação: 'nariz e dorso nasal',
   'Bigode chinês (sulco nasogeniano)': 'sulco nasogeniano e linhas ao redor do nariz e boca',
   'Preenchimento de mento (queixo)': 'mento e contorno anterior do queixo',
+  'Preenchimento de olheira': 'região infra-orbitária, sulco palpebral inferior e olheiras',
   'Lipo HD': 'abdômen, flancos e definição de contornos corporais',
   Papada: 'região submentoniana, pescoço e transição cervical',
   'Lifting de braço': 'braços, terços médio e proximal e axilas',

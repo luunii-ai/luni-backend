@@ -19,6 +19,9 @@ const DEMO_CLINIC = {
     regioes: 'sulco nasogeniano e linhas ao redor do nariz e boca',
   },
   'Preenchimento de mento (queixo)': { regioes: 'mento e contorno anterior do queixo' },
+  'Preenchimento de olheira': {
+    regioes: 'região infra-orbitária, sulco palpebral inferior e olheiras',
+  },
 };
 
 /** @type {Record<string, { regioes: string, requiresSiliconeAck?: boolean }>} */

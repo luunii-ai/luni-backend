@@ -18,6 +18,8 @@ const procedureSchema = new mongoose.Schema(
     },
     /** Texto PT enviado à IA como `regioes` quando o cliente não descreve regiões à mão. */
     defaultEnhanceRegions: { type: String, default: '' },
+    /** Exibe badge "novo" no portal (passo de seleção de procedimentos). */
+    showNewBadge: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

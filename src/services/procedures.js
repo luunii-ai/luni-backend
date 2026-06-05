@@ -13,6 +13,7 @@ export function procedureToDto(doc) {
     pricePerPoint: doc.pricePerPoint,
     practiceProfileScope: doc.practiceProfileScope,
     defaultEnhanceRegions: doc.defaultEnhanceRegions || '',
+    isNew: Boolean(doc.showNewBadge),
   };
 }
 
@@ -24,7 +25,9 @@ export async function listProcedures(opts = {}) {
   const pp = opts.practiceProfile;
   const filter =
     pp === 'clinic' || pp === 'surgeon' ? { practiceProfileScope: pp } : {};
-  const docs = await Procedure.find(filter).sort({ slug: 1 }).lean();
+  const docs = await Procedure.find(filter)
+    .sort({ showNewBadge: -1, slug: 1 })
+    .lean();
   return docs.map((d) => procedureToDto(d));
 }
 
@@ -45,6 +48,7 @@ export async function upsertProceduresFromCatalog() {
           pricePerPoint: item.pricePerPoint,
           practiceProfileScope: item.practiceProfileScope,
           defaultEnhanceRegions: item.defaultEnhanceRegions ?? '',
+          showNewBadge: Boolean(item.isNew),
         },
       },
       { upsert: true },
