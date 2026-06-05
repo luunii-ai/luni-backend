@@ -42,7 +42,8 @@ export function createAuthRouter(jwtSecret) {
         return;
       }
       const token = signUserToken(user._id, jwtSecret);
-      res.json({ token, user: userToPublic(user) });
+      const userWithQuota = (await findUserByIdWithQuotaReset(user._id)) || user;
+      res.json({ token, user: userToPublic(userWithQuota) });
     } catch (e) {
       console.error(e);
       res.status(500).json({ message: 'Erro ao entrar' });

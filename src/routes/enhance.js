@@ -16,6 +16,7 @@ import { resolveEnhanceRegioes } from '../services/enhanceDefaultRegions.js';
 import mongoose from 'mongoose';
 import { Patient } from '../models/patient.js';
 import { patientHasPhotoConsent } from '../services/patients.js';
+import { recordGenerationUsageAsync } from '../services/aiUsageRecorder.js';
 
 async function assertPatientConsentForEnhance(userId, parsed) {
   const ack = String(parsed.patientConsentAck ?? '').trim();
@@ -58,6 +59,75 @@ function mergeAgentBody(agentData) {
     return { ...agentData };
   }
   return { _agent: agentData };
+}
+
+async function callAgentAndRecord({
+  userId,
+  eventType,
+  agentBase,
+  parsed,
+  regioesForAgent,
+  deferSuccessRecord = false,
+}) {
+  const started = Date.now();
+  const { data: agentData, status } = await forwardEnhanceToAgent(agentBase, {
+    buffer: parsed.fileBuffer,
+    filename: parsed.filename,
+    mime: parsed.mime,
+    tipos: parsed.tipos,
+    regioes: regioesForAgent,
+    intensidade: parsed.intensidade,
+    intensidadePct: parsed.intensidadePct,
+    practiceProfile: parsed.practiceProfile || undefined,
+    detalhes: parsed.detalhes && String(parsed.detalhes).trim() ? String(parsed.detalhes).trim() : undefined,
+  });
+  const latencyMs = Date.now() - started;
+
+  const record = (outcome, pairId) => {
+    recordGenerationUsageAsync({
+      userId,
+      eventType,
+      outcome,
+      parsed,
+      agentData,
+      pairId,
+      latencyMs,
+      agentHttpStatus: status,
+    });
+  };
+
+  if (status >= 400) {
+    record('failed');
+    return { ok: false, agentData, status, latencyMs };
+  }
+
+  const extracted = extractAfterImageBuffer(agentData);
+  if (extracted.error) {
+    record('failed');
+    return { ok: false, agentData, status, latencyMs, noImage: true };
+  }
+
+  if (deferSuccessRecord) {
+    return {
+      ok: true,
+      agentData,
+      status,
+      latencyMs,
+      extracted,
+      pendingRecord: {
+        userId,
+        eventType,
+        outcome: 'success',
+        parsed,
+        agentData,
+        latencyMs,
+        agentHttpStatus: status,
+      },
+    };
+  }
+
+  record('success');
+  return { ok: true, agentData, status, latencyMs, extracted };
 }
 
 export function createEnhancePostRouter(requireAuth) {
@@ -116,21 +186,26 @@ export function createEnhancePostRouter(requireAuth) {
         }
         debited = true;
 
-        const { data: agentData, status } = await forwardEnhanceToAgent(agentBase, {
-          buffer: parsed.fileBuffer,
-          filename: parsed.filename,
-          mime: parsed.mime,
-          tipos: parsed.tipos,
-          regioes: regioesForAgent,
-          intensidade: parsed.intensidade,
-          intensidadePct: parsed.intensidadePct,
-          practiceProfile: parsed.practiceProfile || undefined,
-          detalhes: parsed.detalhes && String(parsed.detalhes).trim() ? String(parsed.detalhes).trim() : undefined,
+        const previewResult = await callAgentAndRecord({
+          userId,
+          eventType: 'preview',
+          agentBase,
+          parsed,
+          regioesForAgent,
         });
 
-        if (status >= 400) {
+        if (!previewResult.ok) {
           await refundPreviewCredit(userId);
           debited = false;
+          const { agentData, status } = previewResult;
+          if (previewResult.noImage) {
+            res.status(502).json(
+              typeof agentData === 'object' && agentData !== null
+                ? mergeAgentBody(agentData)
+                : { message: 'Resposta do agente sem imagem em base64' },
+            );
+            return;
+          }
           if (typeof agentData === 'object' && agentData !== null) {
             res.status(status).json(agentData);
           } else {
@@ -139,15 +214,7 @@ export function createEnhancePostRouter(requireAuth) {
           return;
         }
 
-        const extracted = extractAfterImageBuffer(agentData);
-        if (extracted.error) {
-          await refundPreviewCredit(userId);
-          debited = false;
-          res.status(502).json({ message: 'Resposta do agente sem imagem em base64' });
-          return;
-        }
-
-        res.json(mergeAgentBody(agentData));
+        res.json(mergeAgentBody(previewResult.agentData));
         return;
       }
 
@@ -161,21 +228,27 @@ export function createEnhancePostRouter(requireAuth) {
       }
       debited = true;
 
-      const { data: agentData, status } = await forwardEnhanceToAgent(agentBase, {
-        buffer: parsed.fileBuffer,
-        filename: parsed.filename,
-        mime: parsed.mime,
-        tipos: parsed.tipos,
-        regioes: regioesForAgent,
-        intensidade: parsed.intensidade,
-        intensidadePct: parsed.intensidadePct,
-        practiceProfile: parsed.practiceProfile || undefined,
-        detalhes: parsed.detalhes && String(parsed.detalhes).trim() ? String(parsed.detalhes).trim() : undefined,
+      const simResult = await callAgentAndRecord({
+        userId,
+        eventType: 'simulation',
+        agentBase,
+        parsed,
+        regioesForAgent,
+        deferSuccessRecord: true,
       });
 
-      if (status >= 400) {
+      if (!simResult.ok) {
         await refundSimulationCredit(userId);
         debited = false;
+        const { agentData, status } = simResult;
+        if (simResult.noImage) {
+          res.status(502).json(
+            typeof agentData === 'object' && agentData !== null
+              ? mergeAgentBody(agentData)
+              : { message: 'Resposta do agente sem imagem em base64' },
+          );
+          return;
+        }
         if (typeof agentData === 'object' && agentData !== null) {
           res.status(status).json(agentData);
         } else {
@@ -184,13 +257,7 @@ export function createEnhancePostRouter(requireAuth) {
         return;
       }
 
-      const extracted = extractAfterImageBuffer(agentData);
-      if (extracted.error) {
-        await refundSimulationCredit(userId);
-        debited = false;
-        res.status(502).json({ message: 'Resposta do agente sem imagem em base64' });
-        return;
-      }
+      const { agentData, extracted } = simResult;
       const pairId = randomUUID();
       const origExt = extFromMime(parsed.mime, parsed.filename);
       const afterExt = extFromMime(extracted.mime, null);
@@ -207,6 +274,9 @@ export function createEnhancePostRouter(requireAuth) {
           hasSecretAccessKey: Boolean(process.env.R2_SECRET_ACCESS_KEY?.trim()),
           bucket: process.env.R2_BUCKET_NAME?.trim() || '(vazio)',
         });
+        if (simResult.pendingRecord) {
+          recordGenerationUsageAsync(simResult.pendingRecord);
+        }
         res.json(out);
         return;
       }
@@ -234,6 +304,9 @@ export function createEnhancePostRouter(requireAuth) {
           pairId,
           modo: process.env.R2_PUBLIC_BASE_URL?.trim() ? 'public_base' : 'presigned',
         });
+        if (simResult.pendingRecord) {
+          recordGenerationUsageAsync({ ...simResult.pendingRecord, pairId });
+        }
       } catch (e) {
         console.error('[R2/Mongo] enhance falhou (resposta do agente segue sem pairId/R2)', {
           pairId,
@@ -243,6 +316,9 @@ export function createEnhancePostRouter(requireAuth) {
           httpStatusCode: e?.$metadata?.httpStatusCode,
           requestId: e?.$metadata?.requestId,
         });
+        if (simResult.pendingRecord) {
+          recordGenerationUsageAsync(simResult.pendingRecord);
+        }
       }
 
       res.json(out);

@@ -1,6 +1,10 @@
 import { User } from '../models/user.js';
 import { isPartnerTestAppLocked } from './partnerTestAccess.js';
-import { isSubscriptionAppLocked, getSubscriptionLockState } from './subscriptionAccess.js';
+import {
+  isSubscriptionAppLocked,
+  getSubscriptionLockState,
+  isSubscriptionEligibleForQuotaRenewal,
+} from './subscriptionAccess.js';
 
 const PARTNER_LOCK_MSG = 'Período de teste encerrado. Contrate um plano em Configurações para continuar.';
 
@@ -46,27 +50,41 @@ export function getMonthlyQuotaForPriceId(priceId) {
   return Number.isFinite(quota) && quota >= 0 ? Math.floor(quota) : 0;
 }
 
+/**
+ * Monta $set para renovação mensal (simulações e prévias independentes).
+ * Exportado para testes unitários.
+ * @param {Record<string, unknown>} userDoc
+ * @param {string} periodKey
+ */
+export function buildQuotaPeriodResetSet(userDoc, periodKey) {
+  const set = {};
+  if (String(userDoc.simulationQuotaPeriodKey || '') !== periodKey) {
+    set.simulationCreditsRemaining = userDoc.simulationMonthlyQuota ?? 0;
+    set.simulationQuotaPeriodKey = periodKey;
+  }
+  if (String(userDoc.previewQuotaPeriodKey || '') !== periodKey) {
+    set.previewCreditsRemaining = userDoc.previewMonthlyQuota ?? 0;
+    set.previewQuotaPeriodKey = periodKey;
+  }
+  return set;
+}
+
 // If the stored period key is stale (new month), reset remaining credits to the
 // monthly quota and update the period key. Writes to DB only when needed.
-// Accepts either an in-memory Mongoose document or a plain userId (will fetch).
+// Only runs for official accounts with subscriptionStatus === 'active'.
 export async function applyQuotaPeriodResetIfNeeded(userDoc) {
   if (userDoc && String(userDoc.accountType || '') === 'partner_test') {
     return userDoc;
   }
-  const periodKey = getCurrentQuotaPeriodKey();
-  if (!userDoc || String(userDoc.simulationQuotaPeriodKey || '') === periodKey) return userDoc;
+  if (!userDoc || !isSubscriptionEligibleForQuotaRenewal(userDoc)) {
+    return userDoc;
+  }
 
-  const updated = await User.findByIdAndUpdate(
-    userDoc._id,
-    {
-      $set: {
-        simulationCreditsRemaining: userDoc.simulationMonthlyQuota ?? 0,
-        simulationQuotaPeriodKey: periodKey,
-      },
-    },
-    { new: true },
-  );
-  return updated;
+  const periodKey = getCurrentQuotaPeriodKey();
+  const set = buildQuotaPeriodResetSet(userDoc, periodKey);
+  if (Object.keys(set).length === 0) return userDoc;
+
+  return User.findByIdAndUpdate(userDoc._id, { $set: set }, { new: true });
 }
 
 // Called from the webhook when a subscription is created or updated.
@@ -193,23 +211,8 @@ export async function tryDebitPreviewCredit(userId) {
     };
   }
 
-  /** Parceiro: cota fixa de pré-visualização (igual às simulações), sem recarga pelo mês civil. */
-  const isPartner = String(userDoc.accountType || '') === 'partner_test';
-  if (!isPartner) {
-    const periodKey = getCurrentQuotaPeriodKey();
-    if (String(userDoc.previewQuotaPeriodKey || '') !== periodKey) {
-      const updated = await User.findByIdAndUpdate(
-        userDoc._id,
-        {
-          $set: {
-            previewCreditsRemaining: userDoc.previewMonthlyQuota ?? 0,
-            previewQuotaPeriodKey: periodKey,
-          },
-        },
-        { new: true },
-      );
-      userDoc = updated;
-    }
+  if (String(userDoc.previewQuotaPeriodKey || '') !== getCurrentQuotaPeriodKey()) {
+    userDoc = await applyQuotaPeriodResetIfNeeded(userDoc);
   }
 
   const debited = await User.findOneAndUpdate(

@@ -17,6 +17,7 @@ import {
 } from './simulationQuotas.js';
 import { LEGAL_VERSION } from '../legal/version.js';
 import { stripeSubscriptionFields } from './stripeSubscriptionFields.js';
+import { isQuotaRecoveryTransition } from './subscriptionAccess.js';
 
 function resolveTermsFieldsFromSession(session) {
   const version = String(session.metadata?.app_terms_version || LEGAL_VERSION).trim();
@@ -107,17 +108,24 @@ async function handleSubscriptionUpdated(subscription) {
   const user = await findUserByStripeSubscriptionId(subscription.id);
   if (!user) return;
 
+  const previousStatus = user.subscriptionStatus;
+
   await updateUserStripeFields(user._id, {
     ...stripeSubscriptionFields(subscription),
   });
 
-  if (TERMINAL_SUBSCRIPTION_STATUSES.has(String(subscription.status || '').toLowerCase())) {
+  const newStatus = String(subscription.status || '').toLowerCase();
+
+  if (TERMINAL_SUBSCRIPTION_STATUSES.has(newStatus)) {
     await zeroUserQuota(user._id);
-  } else {
-    // Expand may not be present on update events; try to sync if items exist.
-    if (subscription.items?.data?.length) {
-      await syncUserQuotaFromStripeSubscription(user._id, subscription);
-    }
+    return;
+  }
+
+  if (
+    isQuotaRecoveryTransition(previousStatus, newStatus) &&
+    subscription.items?.data?.length
+  ) {
+    await syncUserQuotaFromStripeSubscription(user._id, subscription);
   }
 }
 

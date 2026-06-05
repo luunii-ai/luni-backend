@@ -55,3 +55,34 @@ export function isSubscriptionAppLocked(userDoc) {
 
 /** @deprecated use getSubscriptionLockState */
 export const SUBSCRIPTION_LOCK_MESSAGE = SUBSCRIPTION_CANCELED_MESSAGE;
+
+/** Status anteriores que, ao voltar para `active`, restauram cotas via webhook. */
+export const QUOTA_RECOVERY_PREVIOUS_STATUSES = new Set([
+  'past_due',
+  'unpaid',
+  'incomplete',
+  'incomplete_expired',
+]);
+
+/**
+ * Renovação mensal civil de simulações/prévias — assinatura Stripe `active`, ou conta admin (bypass).
+ * @param {Record<string, unknown> | null | undefined} userDoc
+ */
+export function isSubscriptionEligibleForQuotaRenewal(userDoc) {
+  if (!userDoc) return false;
+  if (String(userDoc.accountType || '') === 'partner_test') return false;
+  if (isSubscriptionBypassUser(userDoc)) return true;
+  if (!String(userDoc.stripeSubscriptionId || '').trim()) return false;
+  return String(userDoc.subscriptionStatus || '').toLowerCase() === 'active';
+}
+
+/**
+ * Transição que dispara restauração imediata de cotas (pagamento regularizado).
+ * @param {string} previousStatus
+ * @param {string} newStatus
+ */
+export function isQuotaRecoveryTransition(previousStatus, newStatus) {
+  const prev = String(previousStatus || '').toLowerCase();
+  const next = String(newStatus || '').toLowerCase();
+  return QUOTA_RECOVERY_PREVIOUS_STATUSES.has(prev) && next === 'active';
+}

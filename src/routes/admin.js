@@ -1,6 +1,13 @@
 import { Router } from 'express';
 import { createPartnerTestUser, findUserByEmail, userToPublic } from '../services/users.js';
 import { sendPartnerTestWelcomeEmail } from '../services/email.js';
+import {
+  getUsageSummary,
+  getUsageByUser,
+  getUsageByUserDetail,
+  getUsageDaily,
+  listUsageGenerations,
+} from '../services/aiUsageAnalytics.js';
 
 export function createAdminRouter(requireAdmin) {
   const r = Router();
@@ -50,6 +57,83 @@ export function createAdminRouter(requireAdmin) {
     } catch (e) {
       console.error(e);
       res.status(500).json({ message: 'Erro ao criar conta parceiro' });
+    }
+  });
+
+  r.get('/usage/summary', async (req, res) => {
+    try {
+      const summary = await getUsageSummary({
+        from: req.query.from,
+        to: req.query.to,
+      });
+      res.json(summary);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ message: 'Erro ao carregar resumo de uso de IA' });
+    }
+  });
+
+  r.get('/usage/by-user/:userId', async (req, res) => {
+    try {
+      const detail = await getUsageByUserDetail(req.params.userId, {
+        from: req.query.from,
+        to: req.query.to,
+        limit: req.query.limit,
+      });
+      if (detail.error) {
+        res.status(detail.status).json({ message: detail.error });
+        return;
+      }
+      res.json(detail);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ message: 'Erro ao carregar uso por usuário' });
+    }
+  });
+
+  r.get('/usage/by-user', async (req, res) => {
+    try {
+      const data = await getUsageByUser({
+        from: req.query.from,
+        to: req.query.to,
+        limit: req.query.limit,
+        sort: req.query.sort,
+      });
+      res.json(data);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ message: 'Erro ao carregar ranking de uso' });
+    }
+  });
+
+  r.get('/usage/daily', async (req, res) => {
+    try {
+      const data = await getUsageDaily({
+        from: req.query.from,
+        to: req.query.to,
+      });
+      res.json(data);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ message: 'Erro ao carregar série diária' });
+    }
+  });
+
+  r.get('/usage/generations', async (req, res) => {
+    try {
+      const data = await listUsageGenerations({
+        from: req.query.from,
+        to: req.query.to,
+        page: req.query.page,
+        limit: req.query.limit,
+        eventType: req.query.eventType,
+        outcome: req.query.outcome,
+        userId: req.query.userId,
+      });
+      res.json(data);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ message: 'Erro ao listar gerações' });
     }
   });
 
