@@ -32,7 +32,7 @@ function resolveTermsFieldsFromSession(session) {
   };
 }
 
-async function handleCheckoutSessionCompleted(session) {
+export async function provisionUserFromCheckoutSession(session, { skipEmails = false } = {}) {
   if (session.mode !== 'subscription') return;
 
   const subscriptionId = session.subscription;
@@ -60,6 +60,10 @@ async function handleCheckoutSessionCompleted(session) {
 
   const user = await findUserByEmail(email);
   if (user) {
+    const alreadyLinked =
+      String(user.stripeSubscriptionId || '').trim() === String(subscriptionId).trim();
+    if (alreadyLinked) return;
+
     await updateUserStripeFields(user._id, {
       stripeCustomerId: String(customerId),
       stripeSubscriptionId: String(subscriptionId),
@@ -73,10 +77,12 @@ async function handleCheckoutSessionCompleted(session) {
         partnerTestExpiresAt: null,
       });
     }
-    await sendSubscriptionActivatedForExistingUserEmail({
-      to: email,
-      loginUrl: process.env.SUBSCRIPTION_WELCOME_LOGIN_URL?.trim() || undefined,
-    });
+    if (!skipEmails) {
+      await sendSubscriptionActivatedForExistingUserEmail({
+        to: email,
+        loginUrl: process.env.SUBSCRIPTION_WELCOME_LOGIN_URL?.trim() || undefined,
+      });
+    }
     return;
   }
 
@@ -136,7 +142,7 @@ export async function handleStripeEvent(event) {
   try {
     switch (event.type) {
       case 'checkout.session.completed':
-        await handleCheckoutSessionCompleted(event.data.object);
+        await provisionUserFromCheckoutSession(event.data.object);
         break;
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted':

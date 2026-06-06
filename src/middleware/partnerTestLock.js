@@ -45,12 +45,11 @@ export function createPartnerTestLockGuard(jwtSecret) {
     const user = await User.findById(userId).lean();
     if (!user) return next();
 
-    if (user.accountType === 'partner_test') {
-      if (String(user.stripeSubscriptionId || '').trim()) {
-        // Parceiro que assinou: regras de assinatura abaixo.
-      } else if (!isPartnerTestAppLocked(user)) {
+    if (user.accountType === 'partner_test' && !String(user.stripeSubscriptionId || '').trim()) {
+      if (!isPartnerTestAppLocked(user)) {
         return next();
-      } else if (exemptWhenBillingLocked(p)) {
+      }
+      if (exemptWhenBillingLocked(p)) {
         return next();
       }
       return res.status(403).json({ message: LOCK_MESSAGE, code: 'PARTNER_TEST_LOCKED' });

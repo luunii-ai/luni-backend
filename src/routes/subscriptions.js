@@ -281,11 +281,25 @@ export function createSubscriptionsRouter(requireAuth) {
         return;
       }
 
-      const user = await findUserByStripeSubscriptionId(subscriptionId);
+      let user = await findUserByStripeSubscriptionId(subscriptionId);
       if (user) {
         res.json({ provisioned: true });
         return;
       }
+
+      // Webhook pode atrasar ou falhar (secret/túnel). Provisiona a partir da sessão paga.
+      try {
+        const { provisionUserFromCheckoutSession } = await import('../services/subscriptionWebhook.js');
+        await provisionUserFromCheckoutSession(session, { skipEmails: true });
+        user = await findUserByStripeSubscriptionId(subscriptionId);
+        if (user) {
+          res.json({ provisioned: true });
+          return;
+        }
+      } catch (e) {
+        console.error('[checkout-session/provisioned] fallback provision', e?.message ?? e);
+      }
+
       res.json({ provisioned: false, phase: 'provisioning' });
     } catch (e) {
       console.error('[checkout-session/provisioned]', e?.message ?? e);
